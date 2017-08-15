@@ -1540,5 +1540,34 @@ defmodule Ecto.Integration.RepoTest do
       assert updated_first.title == "second_updated"
       assert updated_first.text == "second_updated"
     end
+
+    @tag :with_conflict_target
+    test "on conflict replace_all and conflict_target is unique index" do
+      uuid = "6fa459ea-ee8a-3ca4-894e-db77e160355e"
+      post_first = %Post{title: "first", public: true, uuid: uuid}
+      post_second = %Post{title: "second", public: false}
+
+      {:ok, inserted_first} = TestRepo.insert(post_first, on_conflict: :replace_all,conflict_target: :uuid)
+      {:ok, inserted_second} = TestRepo.insert(post_second, on_conflict: :replace_all,conflict_target: :uuid)
+
+      assert inserted_first.id
+      assert inserted_second.id
+      assert TestRepo.all(from p in Post, select: count(p.id)) == [2]
+
+      # multiple record change value
+      changes = [%{uuid: uuid, title: "first_updated", text: "first_updated"}]
+
+      TestRepo.insert_all(Post, changes, on_conflict: :replace_all,conflict_target: :uuid)
+
+      assert TestRepo.all(from p in Post, select: count(p.id)) == [2]
+
+      updated_first =  TestRepo.get(Post, inserted_first.id)
+      assert updated_first.title == "first_updated"
+      assert updated_first.text == "first_updated"
+
+      updated_first =  TestRepo.get(Post, inserted_second.id)
+      assert updated_first.title == "second_updated"
+      assert updated_first.text == "second_updated"
+    end
   end
 end
